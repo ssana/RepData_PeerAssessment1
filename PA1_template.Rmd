@@ -8,18 +8,78 @@ output:
 
 ## Loading and preprocessing the data
 
+```{r}
+df <- read.csv("G:/RProg/activity.csv")
+dfNA <- df[!is.na(df$steps), ]
+```
 
 
 ## What is mean total number of steps taken per day?
 
+```{r, echo=FALSE}
+library(plyr)
+stepsByDay <- ddply(dfNA, .(date), summarise, steps=sum(steps))
+hist(stepsByDay$steps, main="Number of Steps", xlab="Steps taken per day")
+```
 
+####Mean and Median of the total number of steps taken per day
+
+```{r}
+mean(stepsByDay$steps)
+median(stepsByDay$steps)
+```
 
 ## What is the average daily activity pattern?
 
+```{r, echo=FALSE}
+averageByInterval <- ddply(dfNA, .(interval), summarise, steps = mean(steps))
+plot(averageByInterval$interval, averageByInterval$steps, type = "l", xlab = "5-minute Interval", ylab = "Average Number of steps taken", main = "Daily activity pattern")
+```
+
+#### Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```{r}
+averageByInterval[averageByInterval$steps == max(averageByInterval$steps), ]
+colnames(averageByInterval)[2] <- "intervalAvg"
+```
 
 
 ## Imputing missing values
 
+#####Total number of rows with NAs
+```{r}
+nrow(df[is.na(df$steps), ])
+```
 
+#####Fill NAs with mean for that 5-min interval
+```{r, results='hide'}
+dfNoNA <- arrange(join(df, averageByInterval), interval)
+dfNoNA$steps[is.na(dfNoNA$steps)] <- dfNoNA$intervalAvg[is.na(dfNoNA$steps)]
+```
+
+
+#####Recalculate the average daily pattern
+```{r, echo=FALSE}
+stepsByDayNoNA <- ddply(dfNoNA, .(interval), summarise, steps = mean(steps))
+hist(stepsByDayNoNA$steps, main="Number of Steps", xlab="Steps taken per day")
+```
+
+####Mean and Median of the total number of steps taken per day
+
+```{r}
+mean(stepsByDayNoNA$steps)
+median(stepsByDayNoNA$steps)
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r}
+library(lattice)
+weekdays <- weekdays(as.Date(dfNoNA$date))
+dfWeekdays <- transform(dfNoNA, day = weekdays)
+dfWeekdays$wk <- ifelse(dfWeekdays$day %in% c("Saturday", "Sunday"), 
+    "weekend", "weekday")
+averageIntervalByweek <- ddply(dfWeekdays, .(interval, wk), summarise, 
+    steps = mean(steps))
+
+xyplot(steps ~ interval | wk, data = averageIntervalByweek, layout = c(1, 2), 
+    type = "l")
+```
